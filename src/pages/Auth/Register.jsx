@@ -4,12 +4,11 @@ import { useApp } from '../../context/AppContext';
 import { useToast } from '../../components/ui/Toast';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Mail, Lock, User, Eye, EyeOff, UserCheck } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
 export const Register = () => {
     const { register } = useApp();
     const { showToast } = useToast();
     const navigate = useNavigate();
-    const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -21,7 +20,6 @@ export const Register = () => {
 
     const handleRegister = async (e) => {
         e.preventDefault();
-        const trimmedFullName = fullName.trim();
         const trimmedUsername = username.trim();
         const trimmedEmail = email.trim();
         const trimmedPassword = password.trim();
@@ -52,7 +50,7 @@ export const Register = () => {
         setIsLoading(true);
 
         try {
-            const result = await register(trimmedUsername, trimmedEmail, trimmedPassword, trimmedFullName);
+            const result = await register(trimmedUsername, trimmedEmail, trimmedPassword);
             setIsLoading(false);
             if (result.success) {
                 showToast(
@@ -78,19 +76,6 @@ export const Register = () => {
       </div>
 
       <form onSubmit={handleRegister} className="space-y-4 text-slate-300">
-        <Input
-          label="Full Name"
-          type="text"
-          value={fullName}
-          onChange={(e) => {
-            setFullName(e.target.value);
-            if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: '' }));
-          }}
-          error={errors.fullName}
-          leftIcon={<UserCheck className="h-4 w-4"/>}
-          placeholder="John Doe"
-        />
-
         <Input
           label="Username"
           type="text"
