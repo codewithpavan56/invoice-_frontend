@@ -14,7 +14,7 @@ export const Login = () => {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         const trimmedLoginId = loginId.trim();
         const trimmedPassword = password.trim();
@@ -34,21 +34,20 @@ export const Login = () => {
         const isEmail = trimmedLoginId.includes('@');
         const usernameVal = isEmail ? '' : trimmedLoginId;
         const emailVal = isEmail ? trimmedLoginId : '';
-        login(usernameVal, emailVal, trimmedPassword)
-            .then((success) => {
+
+        try {
+            const result = await login(usernameVal, emailVal, trimmedPassword);
             setIsLoading(false);
-            if (success) {
+            if (result && (result === true || result.success)) {
                 showToast('success', 'Welcome Back!', `Logged in as ${trimmedLoginId}`);
                 navigate('/');
+            } else {
+                showToast('error', 'Login Error', (result && result.error) || 'Invalid credentials or login failed.');
             }
-            else {
-                showToast('error', 'Login Error', 'Invalid credentials or login failed.');
-            }
-        })
-            .catch((err) => {
+        } catch (err) {
             setIsLoading(false);
             showToast('error', 'Connection Error', 'Could not reach server.');
-        });
+        }
     };
     return (<div className="space-y-6">
       <div className="space-y-2">
@@ -59,12 +58,42 @@ export const Login = () => {
       </div>
 
       <form onSubmit={handleLogin} className="space-y-4 text-slate-300">
-        <Input label="Username or Email" type="text" value={loginId} onChange={(e) => setLoginId(e.target.value)} error={errors.loginId} leftIcon={<User className="h-4 w-4"/>} placeholder="e.g. admin or admin@yourdomain.com"/>
+        <Input
+          label="Username or Email"
+          type="text"
+          value={loginId}
+          onChange={(e) => {
+            setLoginId(e.target.value);
+            if (errors.loginId) setErrors((prev) => ({ ...prev, loginId: '' }));
+          }}
+          error={errors.loginId}
+          leftIcon={<User className="h-4 w-4"/>}
+          placeholder="e.g. admin or admin@yourdomain.com"
+        />
 
         <div className="space-y-1">
-          <Input label="Password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} leftIcon={<Lock className="h-4 w-4"/>} placeholder="••••••••" rightIcon={<button type="button" onClick={() => setShowPassword(!showPassword)} className="focus:outline-hidden hover:text-primary text-slate-400 dark:text-slate-500 cursor-pointer transition-colors p-1" tabIndex="-1">
+          <Input
+            label="Password"
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+            }}
+            error={errors.password}
+            leftIcon={<Lock className="h-4 w-4"/>}
+            placeholder="••••••••"
+            rightIcon={
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="focus:outline-hidden hover:text-primary text-slate-400 dark:text-slate-500 cursor-pointer transition-colors p-1"
+                tabIndex="-1"
+              >
                 {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-              </button>}/>
+              </button>
+            }
+          />
           <div className="text-right">
             <Link to="/forgot-password" className="text-xs text-primary hover:text-blue-400 font-semibold">
               Forgot your password?

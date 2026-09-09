@@ -284,10 +284,11 @@ export const AppProvider = ({ children }) => {
     };
     const login = async (username, email, password) => {
         try {
+            const identifier = (username || email || '').trim();
             const res = await apiFetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password })
+                body: JSON.stringify({ username: identifier, email: identifier, password })
             });
 
             const contentType = res.headers.get('content-type') || '';
@@ -301,17 +302,17 @@ export const AppProvider = ({ children }) => {
                 setUserProfile(data.user);
                 setIsAuthenticated(true);
                 localStorage.setItem('auth_token', 'true');
-                addLog('settings_update', `User logged in`, `Username: ${username}, Email: ${email}`);
-                return true;
+                addLog('settings_update', `User logged in: ${identifier}`);
+                return { success: true, user: data.user };
             } else if (res.status >= 500 || res.status === 502 || res.status === 503 || res.status === 504 || (!res.ok && !data.error)) {
                 // Fallback login for offline sandbox mode
                 const fallbackUser = {
                     id: `usr_${Date.now()}`,
                     userId: `usr_${Date.now()}`,
-                    username: username || (email ? email.split('@')[0] : 'admin'),
-                    email: email || 'admin@yourdomain.com',
-                    fullName: username || (email ? email.split('@')[0] : 'Administrator'),
-                    name: username || (email ? email.split('@')[0] : 'Administrator'),
+                    username: identifier || 'admin',
+                    email: email || (identifier.includes('@') ? identifier : 'admin@yourdomain.com'),
+                    fullName: identifier || 'Administrator',
+                    name: identifier || 'Administrator',
                     avatarUrl: '',
                     notifications: { email: true, push: true },
                     visualPreference: 'light'
@@ -319,18 +320,20 @@ export const AppProvider = ({ children }) => {
                 setUserProfile(fallbackUser);
                 setIsAuthenticated(true);
                 localStorage.setItem('auth_token', 'true');
-                return true;
+                return { success: true, isOfflineFallback: true, user: fallbackUser };
+            } else {
+                return { success: false, error: data.error || 'Invalid credentials or login failed.' };
             }
-            return false;
         }
         catch (err) {
+            const identifier = (username || email || 'admin').trim();
             const fallbackUser = {
                 id: `usr_${Date.now()}`,
                 userId: `usr_${Date.now()}`,
-                username: username || (email ? email.split('@')[0] : 'admin'),
-                email: email || 'admin@yourdomain.com',
-                fullName: username || (email ? email.split('@')[0] : 'Administrator'),
-                name: username || (email ? email.split('@')[0] : 'Administrator'),
+                username: identifier,
+                email: email || (identifier.includes('@') ? identifier : 'admin@yourdomain.com'),
+                fullName: identifier,
+                name: identifier,
                 avatarUrl: '',
                 notifications: { email: true, push: true },
                 visualPreference: 'light'
@@ -338,7 +341,7 @@ export const AppProvider = ({ children }) => {
             setUserProfile(fallbackUser);
             setIsAuthenticated(true);
             localStorage.setItem('auth_token', 'true');
-            return true;
+            return { success: true, isOfflineFallback: true, user: fallbackUser };
         }
     };
     const logout = async () => {
