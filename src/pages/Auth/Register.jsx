@@ -28,18 +28,22 @@ export const Register = () => {
         const newErrors = {};
         if (!trimmedUsername) {
             newErrors.username = 'Username is required';
+        } else if (trimmedUsername.length < 3) {
+            newErrors.username = 'Username must be at least 3 characters';
         }
         if (!trimmedEmail) {
             newErrors.email = 'Email address is required';
-        } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
-            newErrors.email = 'Invalid email address';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+            newErrors.email = 'Please enter a valid email address (e.g. user@domain.com)';
         }
         if (!trimmedPassword) {
             newErrors.password = 'Password is required';
         } else if (trimmedPassword.length < 6) {
             newErrors.password = 'Password must be at least 6 characters';
         }
-        if (trimmedPassword !== trimmedConfirmPassword) {
+        if (!trimmedConfirmPassword) {
+            newErrors.confirmPassword = 'Please confirm your password';
+        } else if (trimmedPassword !== trimmedConfirmPassword) {
             newErrors.confirmPassword = 'Passwords do not match';
         }
         if (Object.keys(newErrors).length > 0) {
@@ -75,7 +79,7 @@ export const Register = () => {
         </p>
       </div>
 
-      <form onSubmit={handleRegister} className="space-y-4 text-slate-300">
+      <form onSubmit={handleRegister} noValidate className="space-y-4 text-slate-300">
         <Input
           label="Username"
           type="text"

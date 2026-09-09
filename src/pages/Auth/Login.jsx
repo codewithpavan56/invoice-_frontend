@@ -76,7 +76,7 @@ export const Login = () => {
         </button>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-4 text-slate-300">
+      <form onSubmit={handleLogin} noValidate className="space-y-4 text-slate-300">
         <Input
           label="Username or Email"
           type="text"

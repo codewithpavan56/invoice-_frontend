@@ -19,7 +19,7 @@ export const Input = forwardRef(({ label, error, helperText, leftIcon, rightIcon
             ${rightIcon ? 'pr-9' : 'pr-3.5'}
             py-2
             ${error
-            ? 'border-danger focus:border-danger focus:ring-1 focus:ring-danger'
+            ? 'border-red-500 focus:border-red-500 focus:ring-1 focus:ring-red-500'
             : 'border-slate-300 dark:border-slate-700 focus:border-primary focus:ring-1 focus:ring-primary'}
             ${className}
           `} {...props}/>
@@ -29,7 +29,7 @@ export const Input = forwardRef(({ label, error, helperText, leftIcon, rightIcon
           </div>)}
       </div>
 
-      {error ? (<span className="text-xs font-medium text-danger">{error}</span>) : helperText ? (<span className="text-xs text-slate-500 dark:text-slate-400">{helperText}</span>) : null}
+      {error ? (<span className="text-xs font-semibold text-red-500 dark:text-red-400 mt-0.5">{error}</span>) : helperText ? (<span className="text-xs text-slate-500 dark:text-slate-400">{helperText}</span>) : null}
     </div>);
 });
 Input.displayName = 'Input';

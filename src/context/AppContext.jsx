@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_USER_PROFILE, DEFAULT_SETTINGS } from '../constants/dummyData';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE = RAW_BASE.replace(/\/+$/, '');
 
 const apiFetch = (url, options = {}) => {
-    const targetUrl = url.startsWith('/api') ? `${API_BASE}${url}` : url;
+    const targetUrl = url.startsWith('/api') ? (API_BASE ? `${API_BASE}${url}` : url) : url;
     const token = localStorage.getItem('jwt_token');
     const headers = {
         ...options.headers
     };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+        headers['x-access-token'] = token;
     }
     return fetch(targetUrl, {
         ...options,
@@ -67,8 +69,9 @@ export const AppProvider = ({ children }) => {
                 return null;
             })
             .then((user) => {
-                if (user) {
-                    setUserProfile(user);
+                if (user && (user.id || user.userId || user.email)) {
+                    const userObj = user.user || user;
+                    setUserProfile(userObj);
                     setIsAuthenticated(true);
                     localStorage.setItem('auth_token', 'true');
                 } else if (!storedAuth) {
@@ -77,7 +80,6 @@ export const AppProvider = ({ children }) => {
                 }
             })
             .catch(() => {
-                // If network/proxy fails or server offline, preserve stored auth session if user was logged in
                 if (storedAuth) {
                     setIsAuthenticated(true);
                 } else {
@@ -196,7 +198,7 @@ export const AppProvider = ({ children }) => {
             const res = await apiFetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password, fullName })
+                body: JSON.stringify({ username, email, password, fullName, name: fullName || username })
             });
 
             const contentType = res.headers.get('content-type') || '';
@@ -205,81 +207,26 @@ export const AppProvider = ({ children }) => {
                 data = await res.json().catch(() => ({}));
             }
 
-            if (res.ok && data.token) {
-                localStorage.setItem('jwt_token', data.token);
-                if (data.user) {
-                    setUserProfile(data.user);
+            const token = data.token || data.accessToken || data.jwt;
+            const userObj = data.user || (data.userId || data.id ? data : null);
+
+            if (res.ok && (token || data.success || userObj)) {
+                if (token) {
+                    localStorage.setItem('jwt_token', token);
+                }
+                if (userObj) {
+                    setUserProfile(userObj);
                 }
                 setIsAuthenticated(true);
                 localStorage.setItem('auth_token', 'true');
                 addLog('settings_update', `New user registered: ${username}`, `Email: ${email}`);
-                return { success: true, user: data.user, token: data.token };
-            } else if (res.ok) {
-                const registeredUser = {
-                    id: `usr_${Date.now()}`,
-                    userId: `usr_${Date.now()}`,
-                    username: username || email.split('@')[0],
-                    email: email,
-                    fullName: fullName || username || email.split('@')[0],
-                    name: fullName || username || email.split('@')[0],
-                    avatarUrl: '',
-                    notifications: { email: true, push: true },
-                    visualPreference: 'light'
-                };
-                setUserProfile(registeredUser);
-                setIsAuthenticated(true);
-                localStorage.setItem('auth_token', 'true');
-                return { success: true, user: registeredUser };
-            } else if (res.status >= 500 || res.status === 502 || res.status === 503 || res.status === 504 || !data.error) {
-                // Proxy error / server unreachable -> Fallback to local sandbox mode
-                console.warn(`Backend proxy returned status ${res.status}. Falling back to local sandbox registration.`);
-                const fallbackUser = {
-                    id: `usr_${Date.now()}`,
-                    userId: `usr_${Date.now()}`,
-                    username: username || email.split('@')[0],
-                    email: email,
-                    fullName: fullName || username || email.split('@')[0],
-                    name: fullName || username || email.split('@')[0],
-                    avatarUrl: '',
-                    notifications: { email: true, push: true },
-                    visualPreference: 'light'
-                };
-                setUserProfile(fallbackUser);
-                setIsAuthenticated(true);
-                localStorage.setItem('auth_token', 'true');
-                addLog('settings_update', `User registered (Local Sandbox)`, `Username: ${username}`);
-                return {
-                    success: true,
-                    isOfflineFallback: true,
-                    user: fallbackUser,
-                    message: 'Registered in local sandbox mode.'
-                };
+                return { success: true, user: userObj || userProfile, token };
             } else {
                 return { success: false, error: data.error || 'Registration failed.' };
             }
         } catch (err) {
             console.error('Network or server error during registration:', err);
-            const fallbackUser = {
-                id: `usr_${Date.now()}`,
-                userId: `usr_${Date.now()}`,
-                username: username || email.split('@')[0],
-                email: email,
-                fullName: fullName || username || email.split('@')[0],
-                name: fullName || username || email.split('@')[0],
-                avatarUrl: '',
-                notifications: { email: true, push: true },
-                visualPreference: 'light'
-            };
-            setUserProfile(fallbackUser);
-            setIsAuthenticated(true);
-            localStorage.setItem('auth_token', 'true');
-            addLog('settings_update', `User registered (Standalone mode)`, `Username: ${username}`);
-            return {
-                success: true,
-                isOfflineFallback: true,
-                user: fallbackUser,
-                message: 'Registered in local sandbox mode.'
-            };
+            return { success: false, error: 'Could not connect to server.' };
         }
     };
     const login = async (username, email, password) => {
@@ -288,7 +235,7 @@ export const AppProvider = ({ children }) => {
             const res = await apiFetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: identifier, email: identifier, password })
+                body: JSON.stringify({ username: identifier, email: identifier, name: identifier, password })
             });
 
             const contentType = res.headers.get('content-type') || '';
@@ -297,51 +244,27 @@ export const AppProvider = ({ children }) => {
                 data = await res.json().catch(() => ({}));
             }
 
-            if (res.ok && data.success) {
-                localStorage.setItem('jwt_token', data.token);
-                setUserProfile(data.user);
+            const token = data.token || data.accessToken || data.jwt;
+            const userObj = data.user || (data.userId || data.id ? data : null);
+
+            if (res.ok && (token || data.success || userObj)) {
+                if (token) {
+                    localStorage.setItem('jwt_token', token);
+                }
+                if (userObj) {
+                    setUserProfile(userObj);
+                }
                 setIsAuthenticated(true);
                 localStorage.setItem('auth_token', 'true');
                 addLog('settings_update', `User logged in: ${identifier}`);
-                return { success: true, user: data.user };
-            } else if (res.status >= 500 || res.status === 502 || res.status === 503 || res.status === 504 || (!res.ok && !data.error)) {
-                // Fallback login for offline sandbox mode
-                const fallbackUser = {
-                    id: `usr_${Date.now()}`,
-                    userId: `usr_${Date.now()}`,
-                    username: identifier || 'admin',
-                    email: email || (identifier.includes('@') ? identifier : 'admin@yourdomain.com'),
-                    fullName: identifier || 'Administrator',
-                    name: identifier || 'Administrator',
-                    avatarUrl: '',
-                    notifications: { email: true, push: true },
-                    visualPreference: 'light'
-                };
-                setUserProfile(fallbackUser);
-                setIsAuthenticated(true);
-                localStorage.setItem('auth_token', 'true');
-                return { success: true, isOfflineFallback: true, user: fallbackUser };
+                return { success: true, user: userObj || userProfile, token };
             } else {
                 return { success: false, error: data.error || 'Invalid credentials or login failed.' };
             }
         }
         catch (err) {
-            const identifier = (username || email || 'admin').trim();
-            const fallbackUser = {
-                id: `usr_${Date.now()}`,
-                userId: `usr_${Date.now()}`,
-                username: identifier,
-                email: email || (identifier.includes('@') ? identifier : 'admin@yourdomain.com'),
-                fullName: identifier,
-                name: identifier,
-                avatarUrl: '',
-                notifications: { email: true, push: true },
-                visualPreference: 'light'
-            };
-            setUserProfile(fallbackUser);
-            setIsAuthenticated(true);
-            localStorage.setItem('auth_token', 'true');
-            return { success: true, isOfflineFallback: true, user: fallbackUser };
+            console.error('Network or server error during login:', err);
+            return { success: false, error: 'Could not connect to server.' };
         }
     };
     const logout = async () => {
