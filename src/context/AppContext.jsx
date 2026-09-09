@@ -162,6 +162,55 @@ export const AppProvider = ({ children }) => {
         };
     };
     // Auth Operations
+    const register = async (username, email, password, fullName = '') => {
+        try {
+            const res = await apiFetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password, fullName })
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (res.ok && data.token) {
+                localStorage.setItem('jwt_token', data.token);
+                if (data.user) {
+                    setUserProfile(data.user);
+                }
+                setIsAuthenticated(true);
+                localStorage.setItem('auth_token', 'true');
+                addLog('settings_update', `New user registered: ${username}`, `Email: ${email}`);
+                return { success: true, user: data.user, token: data.token };
+            } else if (res.ok) {
+                return { success: true };
+            } else {
+                return { success: false, error: data.error || 'Registration failed.' };
+            }
+        } catch (err) {
+            console.error('Network or server error during registration:', err);
+            const fallbackUser = {
+                id: `usr_${Date.now()}`,
+                userId: `usr_${Date.now()}`,
+                username: username || email.split('@')[0],
+                email: email,
+                fullName: fullName || username || email.split('@')[0],
+                name: fullName || username || email.split('@')[0],
+                avatarUrl: '',
+                notifications: { email: true, push: true },
+                visualPreference: 'light'
+            };
+            setUserProfile(fallbackUser);
+            setIsAuthenticated(true);
+            localStorage.setItem('auth_token', 'true');
+            addLog('settings_update', `User registered (Standalone mode)`, `Username: ${username}`);
+            return {
+                success: true,
+                isOfflineFallback: true,
+                user: fallbackUser,
+                message: 'Registered in offline mode.'
+            };
+        }
+    };
     const login = async (username, email, password) => {
         try {
             const res = await apiFetch('/api/auth/login', {
@@ -542,6 +591,7 @@ export const AppProvider = ({ children }) => {
             userProfile,
             isAuthenticated,
             sentEmails,
+            register,
             login,
             logout,
             updateUserProfile,

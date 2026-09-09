@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useApp } from '../../context/AppContext';
 import { useToast } from '../../components/ui/Toast';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, UserCheck } from 'lucide-react';
 export const Register = () => {
+    const { register } = useApp();
     const { showToast } = useToast();
     const navigate = useNavigate();
+    const [fullName, setFullName] = useState('');
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -15,24 +18,30 @@ export const Register = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState({});
-    const handleRegister = (e) => {
+
+    const handleRegister = async (e) => {
         e.preventDefault();
+        const trimmedFullName = fullName.trim();
+        const trimmedUsername = username.trim();
+        const trimmedEmail = email.trim();
+        const trimmedPassword = password.trim();
+        const trimmedConfirmPassword = confirmPassword.trim();
+
         const newErrors = {};
-        if (!username)
+        if (!trimmedUsername) {
             newErrors.username = 'Username is required';
-        if (!email) {
-            newErrors.email = 'Email address is required';
         }
-        else if (!/\S+@\S+\.\S+/.test(email)) {
+        if (!trimmedEmail) {
+            newErrors.email = 'Email address is required';
+        } else if (!/\S+@\S+\.\S+/.test(trimmedEmail)) {
             newErrors.email = 'Invalid email address';
         }
-        if (!password) {
+        if (!trimmedPassword) {
             newErrors.password = 'Password is required';
-        }
-        else if (password.length < 6) {
+        } else if (trimmedPassword.length < 6) {
             newErrors.password = 'Password must be at least 6 characters';
         }
-        if (password !== confirmPassword) {
+        if (trimmedPassword !== trimmedConfirmPassword) {
             newErrors.confirmPassword = 'Passwords do not match';
         }
         if (Object.keys(newErrors).length > 0) {
@@ -41,50 +50,118 @@ export const Register = () => {
         }
         setErrors({});
         setIsLoading(true);
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-        fetch(`${API_BASE}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password }),
-            credentials: 'include'
-        })
-            .then((res) => {
+
+        try {
+            const result = await register(trimmedUsername, trimmedEmail, trimmedPassword, trimmedFullName);
             setIsLoading(false);
-            if (res.ok) {
-                showToast('success', 'Account Created!', 'Please sign in with your new credentials');
-                navigate('/login');
+            if (result.success) {
+                showToast(
+                    'success',
+                    'Account Created!',
+                    result.message || 'Welcome to your invoice ledger dashboard.'
+                );
+                navigate('/');
+            } else {
+                showToast('error', 'Registration Failed', result.error || 'User creation failed');
             }
-            else {
-                res.json().then((data) => {
-                    showToast('error', 'Registration Failed', data.error || 'User creation failed');
-                });
-            }
-        })
-            .catch((err) => {
+        } catch (err) {
             setIsLoading(false);
-            showToast('error', 'Connection Error', 'Could not reach server.');
-        });
+            showToast('error', 'Registration Error', 'An unexpected error occurred.');
+        }
     };
     return (<div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold font-outfit text-white">Create your account</h1>
         <p className="text-sm text-slate-400">
-          Get started with our premium invoice ledger simulation dashboard.
+          Get started with our premium invoice ledger dashboard.
         </p>
       </div>
 
       <form onSubmit={handleRegister} className="space-y-4 text-slate-300">
-        <Input label="Username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} error={errors.username} leftIcon={<User className="h-4 w-4"/>} placeholder="admin"/>
+        <Input
+          label="Full Name"
+          type="text"
+          value={fullName}
+          onChange={(e) => {
+            setFullName(e.target.value);
+            if (errors.fullName) setErrors((prev) => ({ ...prev, fullName: '' }));
+          }}
+          error={errors.fullName}
+          leftIcon={<UserCheck className="h-4 w-4"/>}
+          placeholder="John Doe"
+        />
 
-        <Input label="Email Address" type="email" value={email} onChange={(e) => setEmail(e.target.value)} error={errors.email} leftIcon={<Mail className="h-4 w-4"/>} placeholder="admin@yourdomain.com"/>
+        <Input
+          label="Username"
+          type="text"
+          value={username}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            if (errors.username) setErrors((prev) => ({ ...prev, username: '' }));
+          }}
+          error={errors.username}
+          leftIcon={<User className="h-4 w-4"/>}
+          placeholder="admin"
+        />
 
-        <Input label="Password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} error={errors.password} leftIcon={<Lock className="h-4 w-4"/>} placeholder="••••••••" rightIcon={<button type="button" onClick={() => setShowPassword(!showPassword)} className="focus:outline-hidden hover:text-primary text-slate-400 dark:text-slate-500 cursor-pointer transition-colors p-1" tabIndex="-1">
+        <Input
+          label="Email Address"
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+          }}
+          error={errors.email}
+          leftIcon={<Mail className="h-4 w-4"/>}
+          placeholder="admin@yourdomain.com"
+        />
+
+        <Input
+          label="Password"
+          type={showPassword ? "text" : "password"}
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+          }}
+          error={errors.password}
+          leftIcon={<Lock className="h-4 w-4"/>}
+          placeholder="••••••••"
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="focus:outline-hidden hover:text-primary text-slate-400 dark:text-slate-500 cursor-pointer transition-colors p-1"
+              tabIndex="-1"
+            >
               {showPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-            </button>}/>
+            </button>
+          }
+        />
 
-        <Input label="Confirm Password" type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} error={errors.confirmPassword} leftIcon={<Lock className="h-4 w-4"/>} placeholder="••••••••" rightIcon={<button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="focus:outline-hidden hover:text-primary text-slate-400 dark:text-slate-500 cursor-pointer transition-colors p-1" tabIndex="-1">
+        <Input
+          label="Confirm Password"
+          type={showConfirmPassword ? "text" : "password"}
+          value={confirmPassword}
+          onChange={(e) => {
+            setConfirmPassword(e.target.value);
+            if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: '' }));
+          }}
+          error={errors.confirmPassword}
+          leftIcon={<Lock className="h-4 w-4"/>}
+          placeholder="••••••••"
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="focus:outline-hidden hover:text-primary text-slate-400 dark:text-slate-500 cursor-pointer transition-colors p-1"
+              tabIndex="-1"
+            >
               {showConfirmPassword ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
-            </button>}/>
+            </button>
+          }
+        />
 
         <Button type="submit" className="w-full mt-2" isLoading={isLoading}>
           Create Account
@@ -99,3 +176,4 @@ export const Register = () => {
       </div>
     </div>);
 };
+
