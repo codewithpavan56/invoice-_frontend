@@ -49,12 +49,31 @@ export const Login = () => {
             showToast('error', 'Connection Error', 'Could not reach server.');
         }
     };
+    const handleDemoFill = () => {
+        setLoginId('admin');
+        setPassword('admin');
+        setErrors({});
+    };
+
     return (<div className="space-y-6">
       <div className="space-y-2">
         <h1 className="text-2xl font-bold font-outfit text-white">Sign in to console</h1>
         <p className="text-sm text-slate-400">
-          Enter credentials below to enter the sandbox dashboard.
+          Enter credentials below to enter the dashboard.
         </p>
+      </div>
+
+      <div className="p-3 rounded-lg border border-slate-800 bg-slate-900/60 flex items-center justify-between text-xs">
+        <div className="text-slate-400">
+          <span className="text-slate-200 font-semibold">Demo Account:</span> admin / admin
+        </div>
+        <button
+          type="button"
+          onClick={handleDemoFill}
+          className="text-primary hover:text-blue-400 font-semibold cursor-pointer underline text-xs"
+        >
+          Auto fill
+        </button>
       </div>
 
       <form onSubmit={handleLogin} className="space-y-4 text-slate-300">
