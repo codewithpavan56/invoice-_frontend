@@ -28,11 +28,30 @@ export const useApp = () => {
     return context;
 };
 export const AppProvider = ({ children }) => {
-    // Load initial hint from localStorage
+    // Load initial auth hint from localStorage
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
         return localStorage.getItem('auth_token') === 'true';
     });
-    const [userProfile, setUserProfile] = useState(INITIAL_USER_PROFILE);
+    const [userProfileState, setUserProfileState] = useState(() => {
+        const saved = localStorage.getItem('user_profile');
+        if (saved) {
+            try { return JSON.parse(saved); } catch (e) {}
+        }
+        return INITIAL_USER_PROFILE;
+    });
+
+    const setUserProfile = (profileOrFn) => {
+        setUserProfileState((prev) => {
+            const next = typeof profileOrFn === 'function' ? profileOrFn(prev) : profileOrFn;
+            try {
+                localStorage.setItem('user_profile', JSON.stringify(next));
+            } catch (e) {}
+            return next;
+        });
+    };
+
+    const userProfile = userProfileState;
+
     const [clients, setClients] = useState([]);
     const [invoices, setInvoices] = useState([]);
     const [quotations, setQuotations] = useState([]);
@@ -41,21 +60,31 @@ export const AppProvider = ({ children }) => {
     const [sentEmails, setSentEmails] = useState([]);
     // 1. Initial auth check & profile loading
     useEffect(() => {
+        const storedAuth = localStorage.getItem('auth_token') === 'true';
         apiFetch('/api/auth/me')
             .then((res) => {
-            if (res.ok)
-                return res.json();
-            throw new Error('Not logged in');
-        })
+                if (res.ok) return res.json();
+                return null;
+            })
             .then((user) => {
-            setUserProfile(user);
-            setIsAuthenticated(true);
-            localStorage.setItem('auth_token', 'true');
-        })
+                if (user) {
+                    setUserProfile(user);
+                    setIsAuthenticated(true);
+                    localStorage.setItem('auth_token', 'true');
+                } else if (!storedAuth) {
+                    setIsAuthenticated(false);
+                    localStorage.setItem('auth_token', 'false');
+                }
+            })
             .catch(() => {
-            setIsAuthenticated(false);
-            localStorage.setItem('auth_token', 'false');
-        });
+                // If network/proxy fails or server offline, preserve stored auth session if user was logged in
+                if (storedAuth) {
+                    setIsAuthenticated(true);
+                } else {
+                    setIsAuthenticated(false);
+                    localStorage.setItem('auth_token', 'false');
+                }
+            });
     }, []);
     // 2. Fetch user data on successful authentication
     useEffect(() => {
@@ -320,6 +349,7 @@ export const AppProvider = ({ children }) => {
             console.error(err);
         }
         localStorage.removeItem('jwt_token');
+        localStorage.removeItem('user_profile');
         setIsAuthenticated(false);
         localStorage.setItem('auth_token', 'false');
     };
