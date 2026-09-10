@@ -51,7 +51,7 @@ export const Login = () => {
     };
     const handleDemoFill = () => {
         setLoginId('admin');
-        setPassword('admin');
+        setPassword('admin123');
         setErrors({});
     };
 
@@ -65,7 +65,7 @@ export const Login = () => {
 
       <div className="p-3 rounded-lg border border-slate-800 bg-slate-900/60 flex items-center justify-between text-xs">
         <div className="text-slate-400">
-          <span className="text-slate-200 font-semibold">Demo Account:</span> admin / admin
+          <span className="text-slate-200 font-semibold">Demo Account:</span> admin / admin123
         </div>
         <button
           type="button"
