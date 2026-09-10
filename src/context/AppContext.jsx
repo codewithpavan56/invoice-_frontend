@@ -312,7 +312,7 @@ export const AppProvider = ({ children }) => {
                 return { success: true, user: userObj || userProfile, token };
             } else if (res.status === 400 || (data && data.error)) {
                 // Reject invalid credentials strictly from server
-                return { success: false, error: data.error || 'Invalid credentials or login failed.' };
+                return { success: false, error: data.error || 'Username or password are not registered' };
             }
         } catch (err) {
             console.warn('Backend server offline during login. Checking local credentials.');
@@ -342,7 +342,7 @@ export const AppProvider = ({ children }) => {
                 localStorage.setItem('auth_token', 'true');
                 return { success: true, user: fallbackUser };
             } else {
-                return { success: false, error: 'Invalid email/username or password.' };
+                return { success: false, error: 'Username or password are not registered' };
             }
         }
 
@@ -367,7 +367,7 @@ export const AppProvider = ({ children }) => {
             }
         }
 
-        return { success: false, error: 'Invalid email/username or password.' };
+        return { success: false, error: 'Username or password are not registered' };
     };
     const logout = async () => {
         try {

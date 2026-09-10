@@ -43,7 +43,7 @@ export const Login = () => {
                 showToast('success', 'Welcome Back!', `Logged in as ${trimmedLoginId}`);
                 navigate('/');
             } else {
-                showToast('error', 'Login Error', (result && result.error) || 'Invalid credentials or login failed.');
+                showToast('error', 'Login Error', (result && result.error) || 'Username or password are not registered');
             }
         } catch (err) {
             setIsLoading(false);
