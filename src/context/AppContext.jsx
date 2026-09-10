@@ -216,20 +216,30 @@ export const AppProvider = ({ children }) => {
 
     // Auth Operations
     const register = async (username, email, password, fullName = '') => {
+        const cleanUsername = (username || '').trim();
+        const cleanEmail = (email || '').trim();
+        const cleanPassword = (password || '').trim();
+        const cleanFullName = (fullName || '').trim() || cleanUsername;
+
         const localRecord = {
             id: `usr_${Date.now()}`,
-            username: username.trim(),
-            email: email.trim(),
-            password: password.trim(),
-            fullName: fullName.trim() || username.trim()
+            username: cleanUsername,
+            email: cleanEmail,
+            password: cleanPassword,
+            fullName: cleanFullName
         };
-        saveLocalUser(localRecord);
 
         try {
             const res = await apiFetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password, fullName, name: fullName || username })
+                body: JSON.stringify({
+                    username: cleanUsername,
+                    email: cleanEmail,
+                    password: cleanPassword,
+                    fullName: cleanFullName,
+                    name: cleanFullName
+                })
             });
 
             const contentType = res.headers.get('content-type') || '';
@@ -242,21 +252,35 @@ export const AppProvider = ({ children }) => {
             const userObj = data.user || (data.userId || data.id ? data : null);
 
             if (res.ok && (token || data.success || userObj)) {
+                saveLocalUser(localRecord);
                 if (token) {
                     localStorage.setItem('jwt_token', token);
                 }
-                if (userObj) {
-                    setUserProfile(userObj);
-                }
+                const registeredUser = userObj || {
+                    id: localRecord.id,
+                    userId: localRecord.id,
+                    username: localRecord.username,
+                    email: localRecord.email,
+                    fullName: localRecord.fullName,
+                    name: localRecord.fullName,
+                    avatarUrl: '',
+                    notifications: { email: true, push: true },
+                    visualPreference: 'light'
+                };
+                setUserProfile(registeredUser);
                 setIsAuthenticated(true);
                 localStorage.setItem('auth_token', 'true');
-                addLog('settings_update', `New user registered: ${username}`, `Email: ${email}`);
-                return { success: true, user: userObj || userProfile, token };
+                addLog('settings_update', `New user registered: ${cleanUsername}`, `Email: ${cleanEmail}`);
+                return { success: true, user: registeredUser, token };
+            } else if (!res.ok && data && (data.error || data.message)) {
+                // Server explicitly rejected registration
+                return { success: false, error: data.error || data.message || 'Registration failed.' };
             }
         } catch (err) {
             console.warn('Backend server offline during registration. Using local sandbox authentication.');
         }
 
+        saveLocalUser(localRecord);
         const fallbackUser = {
             id: localRecord.id,
             userId: localRecord.id,
@@ -271,17 +295,75 @@ export const AppProvider = ({ children }) => {
         setUserProfile(fallbackUser);
         setIsAuthenticated(true);
         localStorage.setItem('auth_token', 'true');
-        addLog('settings_update', `User registered (Local Sandbox)`, `Username: ${username}`);
+        addLog('settings_update', `User registered (Local Sandbox)`, `Username: ${cleanUsername}`);
         return { success: true, user: fallbackUser, isOfflineFallback: true };
     };
 
-    const login = async (username, email, password) => {
-        const identifier = (username || email || '').trim();
-        const pwd = (password || '').trim();
+    const login = async (arg1, arg2, arg3) => {
+        let identifier = '';
+        let pwd = '';
+
+        if (arg3 !== undefined) {
+            // Called as login(username, email, password)
+            identifier = (arg1 || arg2 || '').trim();
+            pwd = (arg3 || '').trim();
+        } else {
+            // Called as login(identifier, password)
+            identifier = (arg1 || '').trim();
+            pwd = (arg2 || '').trim();
+        }
 
         if (!identifier || !pwd) {
             return { success: false, error: 'Username/Email and password are required.' };
         }
+
+        const checkLocalCredentials = () => {
+            const localUsers = getLocalUsers();
+            const matchedUser = localUsers.find(u =>
+                u.username.toLowerCase() === identifier.toLowerCase() || u.email.toLowerCase() === identifier.toLowerCase()
+            );
+
+            if (matchedUser && matchedUser.password === pwd) {
+                const fallbackUser = {
+                    id: matchedUser.id,
+                    userId: matchedUser.id,
+                    username: matchedUser.username,
+                    email: matchedUser.email,
+                    fullName: matchedUser.fullName,
+                    name: matchedUser.fullName,
+                    avatarUrl: '',
+                    notifications: { email: true, push: true },
+                    visualPreference: 'light'
+                };
+                setUserProfile(fallbackUser);
+                setIsAuthenticated(true);
+                localStorage.setItem('auth_token', 'true');
+                return { success: true, user: fallbackUser };
+            }
+
+            // Default demo account fallback
+            if (identifier.toLowerCase() === 'admin' || identifier.toLowerCase() === 'admin@yourdomain.com' || identifier.toLowerCase() === 'demo') {
+                if (['admin', 'admin123', 'password', '123456', 'demo'].includes(pwd.toLowerCase())) {
+                    const adminUser = {
+                        id: 'usr_admin_default',
+                        userId: 'usr_admin_default',
+                        username: 'admin',
+                        email: 'admin@yourdomain.com',
+                        fullName: 'Administrator',
+                        name: 'Administrator',
+                        avatarUrl: '',
+                        notifications: { email: true, push: true },
+                        visualPreference: 'light'
+                    };
+                    setUserProfile(adminUser);
+                    setIsAuthenticated(true);
+                    localStorage.setItem('auth_token', 'true');
+                    return { success: true, user: adminUser };
+                }
+            }
+
+            return null;
+        };
 
         try {
             const res = await apiFetch('/api/auth/login', {
@@ -310,61 +392,15 @@ export const AppProvider = ({ children }) => {
                 localStorage.setItem('auth_token', 'true');
                 addLog('settings_update', `User logged in: ${identifier}`);
                 return { success: true, user: userObj || userProfile, token };
-            } else if (res.status === 400 || (data && data.error)) {
-                // Reject invalid credentials strictly from server
-                return { success: false, error: data.error || 'Username or password are not registered' };
             }
         } catch (err) {
             console.warn('Backend server offline during login. Checking local credentials.');
         }
 
-        // Offline / server connection failure fallback: Check local registration store or admin demo account
-        const localUsers = getLocalUsers();
-        const matchedUser = localUsers.find(u =>
-            u.username.toLowerCase() === identifier.toLowerCase() || u.email.toLowerCase() === identifier.toLowerCase()
-        );
-
-        if (matchedUser) {
-            if (matchedUser.password === pwd) {
-                const fallbackUser = {
-                    id: matchedUser.id,
-                    userId: matchedUser.id,
-                    username: matchedUser.username,
-                    email: matchedUser.email,
-                    fullName: matchedUser.fullName,
-                    name: matchedUser.fullName,
-                    avatarUrl: '',
-                    notifications: { email: true, push: true },
-                    visualPreference: 'light'
-                };
-                setUserProfile(fallbackUser);
-                setIsAuthenticated(true);
-                localStorage.setItem('auth_token', 'true');
-                return { success: true, user: fallbackUser };
-            } else {
-                return { success: false, error: 'Username or password are not registered' };
-            }
-        }
-
-        // Default demo account fallback when offline
-        if (identifier.toLowerCase() === 'admin' || identifier.toLowerCase() === 'admin@yourdomain.com' || identifier.toLowerCase() === 'demo') {
-            if (['admin', 'admin123', 'password', '123456', 'demo'].includes(pwd.toLowerCase())) {
-                const adminUser = {
-                    id: 'usr_admin_default',
-                    userId: 'usr_admin_default',
-                    username: 'admin',
-                    email: 'admin@yourdomain.com',
-                    fullName: 'Administrator',
-                    name: 'Administrator',
-                    avatarUrl: '',
-                    notifications: { email: true, push: true },
-                    visualPreference: 'light'
-                };
-                setUserProfile(adminUser);
-                setIsAuthenticated(true);
-                localStorage.setItem('auth_token', 'true');
-                return { success: true, user: adminUser };
-            }
+        // If backend API login didn't succeed, verify against local user database & demo accounts
+        const localResult = checkLocalCredentials();
+        if (localResult) {
+            return localResult;
         }
 
         return { success: false, error: 'Username or password are not registered' };

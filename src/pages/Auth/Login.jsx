@@ -32,12 +32,8 @@ export const Login = () => {
         }
         setErrors({});
         setIsLoading(true);
-        const isEmail = trimmedLoginId.includes('@');
-        const usernameVal = isEmail ? '' : trimmedLoginId;
-        const emailVal = isEmail ? trimmedLoginId : '';
-
         try {
-            const result = await login(usernameVal, emailVal, trimmedPassword);
+            const result = await login(trimmedLoginId, trimmedPassword);
             setIsLoading(false);
             if (result && (result === true || result.success)) {
                 showToast('success', 'Welcome Back!', `Logged in as ${trimmedLoginId}`);
