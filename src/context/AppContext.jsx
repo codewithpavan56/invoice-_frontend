@@ -276,8 +276,12 @@ export const AppProvider = ({ children }) => {
     };
 
     const login = async (username, email, password) => {
-        const identifier = (username || email || '').trim().toLowerCase();
+        const identifier = (username || email || '').trim();
         const pwd = (password || '').trim();
+
+        if (!identifier || !pwd) {
+            return { success: false, error: 'Username/Email and password are required.' };
+        }
 
         try {
             const res = await apiFetch('/api/auth/login', {
@@ -306,39 +310,18 @@ export const AppProvider = ({ children }) => {
                 localStorage.setItem('auth_token', 'true');
                 addLog('settings_update', `User logged in: ${identifier}`);
                 return { success: true, user: userObj || userProfile, token };
-            } else if (res.status === 400 && data.error && !data.error.includes('Server')) {
-                // Check if user exists in local registration store
-                const localUsers = getLocalUsers();
-                const matchedUser = localUsers.find(u =>
-                    u.username.toLowerCase() === identifier || u.email.toLowerCase() === identifier
-                );
-                if (matchedUser && matchedUser.password === pwd) {
-                    const fallbackUser = {
-                        id: matchedUser.id,
-                        userId: matchedUser.id,
-                        username: matchedUser.username,
-                        email: matchedUser.email,
-                        fullName: matchedUser.fullName,
-                        name: matchedUser.fullName,
-                        avatarUrl: '',
-                        notifications: { email: true, push: true },
-                        visualPreference: 'light'
-                    };
-                    setUserProfile(fallbackUser);
-                    setIsAuthenticated(true);
-                    localStorage.setItem('auth_token', 'true');
-                    return { success: true, user: fallbackUser };
-                }
-                return { success: false, error: data.error };
+            } else if (res.status === 400 || (data && data.error)) {
+                // Reject invalid credentials strictly from server
+                return { success: false, error: data.error || 'Invalid credentials or login failed.' };
             }
         } catch (err) {
             console.warn('Backend server offline during login. Checking local credentials.');
         }
 
-        // Offline or proxy timeout fallback
+        // Offline / server connection failure fallback: Check local registration store or admin demo account
         const localUsers = getLocalUsers();
         const matchedUser = localUsers.find(u =>
-            u.username.toLowerCase() === identifier || u.email.toLowerCase() === identifier
+            u.username.toLowerCase() === identifier.toLowerCase() || u.email.toLowerCase() === identifier.toLowerCase()
         );
 
         if (matchedUser) {
@@ -359,12 +342,12 @@ export const AppProvider = ({ children }) => {
                 localStorage.setItem('auth_token', 'true');
                 return { success: true, user: fallbackUser };
             } else {
-                return { success: false, error: 'Invalid password. Please check your password.' };
+                return { success: false, error: 'Invalid email/username or password.' };
             }
         }
 
-        // Default demo account fallback
-        if (identifier === 'admin' || identifier === 'admin@yourdomain.com' || identifier === 'demo') {
+        // Default demo account fallback when offline
+        if (identifier.toLowerCase() === 'admin' || identifier.toLowerCase() === 'admin@yourdomain.com' || identifier.toLowerCase() === 'demo') {
             if (['admin', 'admin123', 'password', '123456', 'demo'].includes(pwd.toLowerCase())) {
                 const adminUser = {
                     id: 'usr_admin_default',
@@ -381,8 +364,6 @@ export const AppProvider = ({ children }) => {
                 setIsAuthenticated(true);
                 localStorage.setItem('auth_token', 'true');
                 return { success: true, user: adminUser };
-            } else {
-                return { success: false, error: 'Invalid password for admin account.' };
             }
         }
 
