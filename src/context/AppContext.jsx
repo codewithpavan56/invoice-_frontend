@@ -386,24 +386,6 @@ export const AppProvider = ({ children }) => {
             }
         }
 
-        if (identifier && pwd) {
-            const fallbackUser = {
-                id: `usr_${Date.now()}`,
-                userId: `usr_${Date.now()}`,
-                username: identifier,
-                email: identifier.includes('@') ? identifier : `${identifier}@yourdomain.com`,
-                fullName: identifier,
-                name: identifier,
-                avatarUrl: '',
-                notifications: { email: true, push: true },
-                visualPreference: 'light'
-            };
-            setUserProfile(fallbackUser);
-            setIsAuthenticated(true);
-            localStorage.setItem('auth_token', 'true');
-            return { success: true, user: fallbackUser };
-        }
-
         return { success: false, error: 'Invalid email/username or password.' };
     };
     const logout = async () => {
