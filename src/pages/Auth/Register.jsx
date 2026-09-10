@@ -48,6 +48,7 @@ export const Register = () => {
         }
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
+            showToast('error', 'Validation Error', 'Please check the highlighted fields.');
             return;
         }
         setErrors({});

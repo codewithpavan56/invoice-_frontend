@@ -27,6 +27,7 @@ export const Login = () => {
         }
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
+            showToast('error', 'Validation Error', 'Please enter required login credentials.');
             return;
         }
         setErrors({});
