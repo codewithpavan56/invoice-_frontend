@@ -91,7 +91,7 @@ export const Register = () => {
           }}
           error={errors.username}
           leftIcon={<User className="h-4 w-4"/>}
-          placeholder="admin"
+          placeholder="e.g. alex88"
         />
 
         <Input
@@ -104,7 +104,7 @@ export const Register = () => {
           }}
           error={errors.email}
           leftIcon={<Mail className="h-4 w-4"/>}
-          placeholder="admin@yourdomain.com"
+          placeholder="e.g. alex@example.com"
         />
 
         <Input

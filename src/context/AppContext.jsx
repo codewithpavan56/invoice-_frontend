@@ -272,9 +272,10 @@ export const AppProvider = ({ children }) => {
                 localStorage.setItem('auth_token', 'true');
                 addLog('settings_update', `New user registered: ${cleanUsername}`, `Email: ${cleanEmail}`);
                 return { success: true, user: registeredUser, token };
-            } else if (!res.ok && data && (data.error || data.message)) {
+            } else if (!res.ok) {
                 // Server explicitly rejected registration
-                return { success: false, error: data.error || data.message || 'Registration failed.' };
+                const errorMsg = (data && (data.error || data.message)) || `Registration failed (status ${res.status}).`;
+                return { success: false, error: errorMsg };
             }
         } catch (err) {
             console.warn('Backend server offline during registration. Using local sandbox authentication.');
